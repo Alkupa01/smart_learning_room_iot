@@ -59,17 +59,17 @@ class ControlScreen extends ConsumerWidget {
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
                     child: actuator.mode == 'auto'
-                        ? _InfoChip(
-                            key: const ValueKey('auto'),
+                        ? const _InfoChip(
+                            key: ValueKey('auto'),
                             text: '✦ AI mengontrol aktuator secara otomatis berdasarkan sensor',
-                            color: const Color(0xFF534AB7),
-                            bg:    const Color(0xFFEEEDFE),
+                            color: Color(0xFF534AB7),
+                            bg:    Color(0xFFEEEDFE),
                           )
-                        : _InfoChip(
-                            key: const ValueKey('manual'),
+                        : const _InfoChip(
+                            key: ValueKey('manual'),
                             text: 'Mode manual — kamu yang tentukan nyala/matinya perangkat',
-                            color: const Color(0xFF854F0B),
-                            bg:    const Color(0xFFFFF8E1),
+                            color: Color(0xFF854F0B),
+                            bg:    Color(0xFFFFF8E1),
                           ),
                   ),
                   const SizedBox(height: 20),
@@ -143,10 +143,7 @@ class ControlScreen extends ConsumerWidget {
                           selectedLevel: feedback,
                           onSelected: (level) {
                             ref.read(feedbackProvider.notifier).state = level;
-                            // TODO: Kirim ke Firebase
-                            // FirebaseDatabase.instance
-                            //   .ref('smartlearningroom/feedback/last_rating')
-                            //   .set(level);
+                            ref.read(firebaseServiceProvider).sendUserFeedback(level);
                             _showFeedbackSnackbar(context, level);
                           },
                         ),
@@ -159,15 +156,15 @@ class ControlScreen extends ConsumerWidget {
                               color: const Color(0xFFE1F5EE),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.check_circle_outline,
+                                Icon(Icons.check_circle_outline,
                                     color: Color(0xFF0F6E56), size: 14),
-                                const SizedBox(width: 6),
+                                SizedBox(width: 6),
                                 Text(
                                   'Feedback tersimpan — AI sedang belajar dari preferensimu',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10, color: Color(0xFF0F6E56),
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -197,7 +194,7 @@ class ControlScreen extends ConsumerWidget {
   String _fanReason(SensorData s, String mode) {
     if (mode == 'auto') {
       if (s.temperature > 27) return 'Aktif — suhu ${s.temperature.toStringAsFixed(1)}°C melewati batas';
-      if (s.gasLevel > 60)    return 'Aktif — kualitas udara menurun (${s.gasLevel}%)';
+      if (s.soundLevel > 50)  return 'Aktif — ruangan terdeteksi bising (${s.soundLevel}%)';
       return 'Standby — kondisi optimal';
     }
     return 'Mode manual — kontrol manual';
@@ -265,8 +262,6 @@ class ControlScreen extends ConsumerWidget {
   }
 }
 
-// ── Helper widgets ────────────────────────────────────────────────────────────
-
 class _SectionLabel extends StatelessWidget {
   final String label;
   const _SectionLabel({required this.label});
@@ -314,15 +309,15 @@ class _ModeToggle extends StatelessWidget {
       child: Row(
         children: [
           _ModeOption(
-            label:    '✦  Auto AI',
+            label:     '✦  Auto AI',
             selected: mode == 'auto',
-            onTap:    () => onChanged('auto'),
+            onTap:     () => onChanged('auto'),
             selectedColor: const Color(0xFF534AB7),
           ),
           _ModeOption(
-            label:    '⚙  Manual',
+            label:     '⚙  Manual',
             selected: mode == 'manual',
-            onTap:    () => onChanged('manual'),
+            onTap:     () => onChanged('manual'),
             selectedColor: const Color(0xFFBA7517),
           ),
         ],
@@ -486,7 +481,8 @@ class _SensorSummaryRow extends StatelessWidget {
               _MiniVal(icon: Icons.thermostat_outlined, value: '${sensor.temperature.toStringAsFixed(1)}°C', color: const Color(0xFFE8593C)),
               _MiniVal(icon: Icons.water_drop_outlined, value: '${sensor.humidity.toStringAsFixed(0)}%',    color: const Color(0xFF378ADD)),
               _MiniVal(icon: Icons.light_mode_outlined, value: '${sensor.lux.toStringAsFixed(0)}lx',       color: const Color(0xFFBA7517)),
-              _MiniVal(icon: Icons.air_outlined,        value: 'CO₂ ${sensor.gasLevel}%',                  color: const Color(0xFF1D9E75)),
+              // RECONFIQ: Membaca parameter suara KY-037
+              _MiniVal(icon: Icons.volume_up_outlined,  value: 'Suara ${sensor.soundLevel}%',               color: const Color(0xFF1D9E75)),
             ],
           ),
         ],

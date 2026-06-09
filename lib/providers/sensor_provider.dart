@@ -1,75 +1,45 @@
 // lib/providers/sensor_provider.dart
-// Semua Riverpod providers untuk Smart Learning Room
-// Saat ini pakai mock stream — ganti dengan Firebase stream saat siap
-
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:firebase_database/firebase_database.dart';
 import '../models/sensor_data.dart';
+import '../services/firebase_service.dart';
 
-// ── SENSOR PROVIDER ───────────────────────────────────────────────────────────
-// Untuk switch ke Firebase, ganti isi provider ini dengan:
-//
-// final sensorProvider = StreamProvider<SensorData>((ref) {
-//   return FirebaseDatabase.instance
-//       .ref('smartlearningroom/sensors')
-//       .onValue
-//       .map((event) => SensorData.fromMap(
-//           Map<String, dynamic>.from(event.snapshot.value as Map)));
-// });
+// Provider untuk menginisialisasi FirebaseService
+final firebaseServiceProvider = Provider<FirebaseService>((ref) => FirebaseService());
 
+// ── SENSOR PROVIDER (REAL FROM FIREBASE) ──────────────────────────────────────
 final sensorProvider = StreamProvider<SensorData>((ref) {
-  return _mockSensorStream();
+  final firebaseService = ref.watch(firebaseServiceProvider);
+  return firebaseService.getSensorStream();
 });
 
-Stream<SensorData> _mockSensorStream() async* {
-  final rng = Random();
+// ── SESSION ACTIVE PROVIDER (Riverpod 3.x Style) ──────────────────────────────
+class SessionActiveNotifier extends Notifier<bool> {
+  @override
+  bool build() => false; // Nilai awal: false
 
-  // Nilai awal mendekati kondisi nyata ruangan
-  double temp     = 25.4;
-  double humidity = 62.0;
-  double lux      = 340.0;
-  int gas         = 35;
-
-  while (true) {
-    // Simulasi fluktuasi kecil setiap 3 detik (seperti sensor nyata)
-    temp     = (temp     + (rng.nextDouble() - 0.48) * 0.5).clamp(21.0, 32.0);
-    humidity = (humidity + (rng.nextDouble() - 0.45) * 1.5).clamp(35.0, 85.0);
-    lux      = (lux      + (rng.nextDouble() - 0.5)  * 25).clamp(50.0, 700.0);
-    gas      = (gas      + (rng.nextInt(5) - 2)).clamp(10, 90);
-
-    final score = SensorData.calculateComfort(
-      temp: temp, humidity: humidity, lux: lux, gas: gas,
-    );
-
-    yield SensorData(
-      temperature:   temp,
-      humidity:      humidity,
-      lux:           lux,
-      gasLevel:      gas,
-      presence:      true,
-      distance:      45.0 + rng.nextDouble() * 10,
-      comfortScore:  score,
-      comfortStatus: SensorData.scoreToStatus(score),
-      timestamp:     DateTime.now(),
-    );
-
-    await Future.delayed(const Duration(seconds: 3));
-  }
+  set state(bool value) => super.state = value; // Mempertahankan fungsi pencatatan .state di UI
 }
+final sessionActiveProvider = NotifierProvider<SessionActiveNotifier, bool>(() {
+  return SessionActiveNotifier();
+});
 
-// ── SESSION PROVIDER ──────────────────────────────────────────────────────────
-final sessionActiveProvider = StateProvider<bool>((ref) => false);
+// ── SESSION SECONDS PROVIDER (Riverpod 3.x Style) ─────────────────────────────
+class SessionSecondsNotifier extends Notifier<int> {
+  @override
+  int build() => 0; // Nilai awal: 0 detik
 
-// Timer sesi dalam detik
-final sessionSecondsProvider = StateProvider<int>((ref) => 0);
+  set state(int value) => super.state = value;
+}
+final sessionSecondsProvider = NotifierProvider<SessionSecondsNotifier, int>(() {
+  return SessionSecondsNotifier();
+});
 
-// Provider yang jalankan timer saat sesi aktif
+// ── SESSION TIMER PROVIDER ────────────────────────────────────────────────────
 final sessionTimerProvider = Provider<void>((ref) {
-  ref.listen<bool>(sessionActiveProvider, (prev, next) {
+  ref.listen<bool>(sessionActiveProvider, (bool? prev, bool next) {
     if (next) {
-      // Reset dan mulai timer
       ref.read(sessionSecondsProvider.notifier).state = 0;
       Timer.periodic(const Duration(seconds: 1), (t) {
         if (!ref.read(sessionActiveProvider)) {
@@ -82,12 +52,12 @@ final sessionTimerProvider = Provider<void>((ref) {
   });
 });
 
-// ── ACTUATOR PROVIDER ─────────────────────────────────────────────────────────
+// ── ACTUATOR STATE MODEL ──────────────────────────────────────────────────────
 class ActuatorState {
   final bool fan;
   final bool light;
-  final double servoAngle; // 0–90 derajat
-  final String mode; // 'auto' atau 'manual'
+  final double servoAngle; 
+  final String mode; 
 
   const ActuatorState({
     this.fan = true,
@@ -106,36 +76,85 @@ class ActuatorState {
   }
 }
 
-class ActuatorNotifier extends StateNotifier<ActuatorState> {
-  ActuatorNotifier() : super(const ActuatorState());
+// ── ACTUATOR NOTIFIER (Gaya Riverpod 3.x Modern & Sinkron Database) ───────────
+class ActuatorNotifier extends Notifier<ActuatorState> {
+  FirebaseService get _firebaseService => ref.read(firebaseServiceProvider);
+  StreamSubscription? _subscription;
 
-  // TODO: Saat Firebase terhubung, tambahkan write ke Firebase di setiap method:
-  // await FirebaseDatabase.instance.ref('smartlearningroom/control/fan').set(value);
+  @override
+  ActuatorState build() {
+    // Jalankan sinkronisasi pasif: Dengar perubahan dari Firebase node 'control'
+    // Jika data control di Firebase berubah (atau baru dibuat), UI Flutter langsung update otomatis
+    _subscription?.cancel();
+    
+    // Kita manfaatkan referensi instance database Firebase
+    final dbRef = FirebaseDatabase.instance.ref('smartlearningroom/control');
+    
+    _subscription = dbRef.onValue.listen((event) {
+      final snapshotValue = event.snapshot.value;
+      if (snapshotValue != null) {
+        final Map<dynamic, dynamic> map = snapshotValue as Map;
+        
+        state = ActuatorState(
+          fan: map['fan'] as bool? ?? false,
+          light: map['light'] as bool? ?? false,
+          servoAngle: (map['servoAngle'] as num?)?.toDouble() ?? 45.0,
+          mode: map['mode'] as String? ?? 'auto',
+        );
+      }
+    });
 
-  void toggleFan()   => state = state.copyWith(fan: !state.fan);
-  void toggleLight() => state = state.copyWith(light: !state.light);
-  void setServo(double angle) => state = state.copyWith(servoAngle: angle);
-  void setMode(String mode)   => state = state.copyWith(mode: mode);
+    // Nilai awal cadangan sebelum stream mendarat
+    return const ActuatorState(fan: false, light: false, servoAngle: 45, mode: 'auto');
+  }
 
-  // AI Rule Engine: update aktuator otomatis berdasarkan data sensor
+  void toggleFan() {
+    final nextValue = !state.fan;
+    // Cukup kirim ke Firebase, biar listener di fungsi build() yang merubah state UI kita
+    _firebaseService.updateActuatorState(fan: nextValue);
+  }
+
+  void toggleLight() {
+    final nextValue = !state.light;
+    _firebaseService.updateActuatorState(light: nextValue);
+  }
+
+  void setServo(double angle) {
+    _firebaseService.updateActuatorState(servoAngle: angle);
+  }
+
+  void setMode(String mode) {
+    _firebaseService.updateActuatorState(mode: mode);
+  }
+
   void applyAiRules(SensorData sensor) {
     if (state.mode != 'auto') return;
-    state = state.copyWith(
-      fan:   sensor.temperature > 27 || sensor.gasLevel > 60,
-      light: sensor.lux < 250,
-    );
+    
+    // AI LOGIC UPDATE: Kipas aktif jika suhu > 27°C ATAU tingkat kebisingan ruangan > 50%
+    final targetFan = sensor.temperature > 27 || sensor.soundLevel > 50;
+    final targetLight = sensor.lux < 250;
+
+    if (targetFan != state.fan || targetLight != state.light) {
+      _firebaseService.updateActuatorState(fan: targetFan, light: targetLight);
+    }
   }
 }
 
-final actuatorProvider = StateNotifierProvider<ActuatorNotifier, ActuatorState>(
-  (ref) => ActuatorNotifier(),
-);
+final actuatorProvider = NotifierProvider<ActuatorNotifier, ActuatorState>(() {
+  return ActuatorNotifier();
+});
 
-// ── FEEDBACK PROVIDER ─────────────────────────────────────────────────────────
-// 0 = belum ada, 1–4 = level feedback (1=sangat tidak nyaman, 4=sangat nyaman)
-final feedbackProvider = StateProvider<int>((ref) => 0);
+// ── FEEDBACK PROVIDER (Riverpod 3.x Style) ────────────────────────────────────
+class FeedbackNotifier extends Notifier<int> {
+  @override
+  int build() => 0; // Nilai awal: 0
 
-// Helper: format detik ke string MM:SS
+  set state(int value) => super.state = value;
+}
+final feedbackProvider = NotifierProvider<FeedbackNotifier, int>(() {
+  return FeedbackNotifier();
+});
+
 String formatDuration(int seconds) {
   final m = (seconds ~/ 60).toString().padLeft(2, '0');
   final s = (seconds % 60).toString().padLeft(2, '0');

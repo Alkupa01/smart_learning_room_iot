@@ -1,45 +1,65 @@
 // lib/models/sensor_data.dart
-// Model data sensor dari ESP32-S3
-// TODO: Swap fromMap() factory dengan data dari Firebase Realtime DB
+// Model data sensor dari ESP32-S3 dengan Integrasi KY-037 Sound Sensor
 
 class SensorData {
-  final double temperature; // °C dari BME280
-  final double humidity;    // % RH dari BME280 / DHT11
-  final double lux;         // lux dari LDR
-  final int gasLevel;       // 0–100 dari sensor MQ (proxy CO₂)
-  final bool presence;      // true/false dari PIR HC-SR501
-  final double distance;    // cm dari HC-SR04
-  final int comfortScore;   // dihitung otomatis 0–100
-  final String comfortStatus;
-  final DateTime timestamp;
+  final double temperature;
+  final double humidity;
+  final double lux;
+  final int soundLevel; // Pengganti gasLevel total
+  final bool presence;
+  final double distance;
+  final String timestamp;
+  final int comfortScore;      // Menyimpan hasil kalkulasi score
+  final String comfortStatus;  // Menyimpan label status kenyamanan
 
-  const SensorData({
+  SensorData({
     required this.temperature,
     required this.humidity,
     required this.lux,
-    required this.gasLevel,
+    required this.soundLevel,
     required this.presence,
     required this.distance,
+    required this.timestamp,
     required this.comfortScore,
     required this.comfortStatus,
-    required this.timestamp,
   });
 
-  // ── Comfort Index Engine ──────────────────────────────────────────────────
-  // Formula: Score = W1×NormSuhu + W2×NormRH + W3×NormLux + W4×NormGas
-  // Bobot: W1=0.35, W2=0.25, W3=0.25, W4=0.15
+  // ── Comfort Index Engine (Diadaptasi untuk Polusi Suara KY-037) ──────────────
+  // Bobot: Temp=0.35, Kelembaban=0.25, Lux=0.25, Kebisingan Suara=0.15
   static int calculateComfort({
     required double temp,
     required double humidity,
     required double lux,
-    required int gas,
+    required int sound,
   }) {
-    final normTemp    = _normalize(temp,     min: 18, max: 32, idealMin: 22, idealMax: 26);
-    final normRH      = _normalize(humidity, min: 20, max: 90, idealMin: 40, idealMax: 60);
-    final normLux     = _normalize(lux,      min: 0,  max: 800, idealMin: 300, idealMax: 500);
-    final normGas     = 1.0 - (gas / 100.0); // lebih rendah = lebih baik
+    final normTemp = _normalize(
+      temp,
+      min: 18,
+      max: 32,
+      idealMin: 22,
+      idealMax: 26,
+    );
+    final normRH = _normalize(
+      humidity,
+      min: 20,
+      max: 90,
+      idealMin: 40,
+      idealMax: 60,
+    );
+    final normLux = _normalize(
+      lux,
+      min: 0,
+      max: 800,
+      idealMin: 300,
+      idealMax: 500,
+    );
+    
+    // Suara makin tinggi (bising) = nilai kenyamanan makin rendah
+    final normSound = 1.0 - (sound / 100.0); 
 
-    final score = (0.35 * normTemp + 0.25 * normRH + 0.25 * normLux + 0.15 * normGas) * 100;
+    final score =
+        (0.35 * normTemp + 0.25 * normRH + 0.25 * normLux + 0.15 * normSound) *
+        100;
     return score.clamp(0, 100).round();
   }
 
@@ -62,43 +82,69 @@ class SensorData {
     return 'Tidak Nyaman';
   }
 
-  // ── Factory dari Firebase ─────────────────────────────────────────────────
-  // TODO: Aktifkan ini saat Firebase sudah terhubung
-  // factory SensorData.fromMap(Map<String, dynamic> map) {
-  //   final temp     = (map['temperature'] as num?)?.toDouble() ?? 25.0;
-  //   final humidity = (map['humidity'] as num?)?.toDouble() ?? 60.0;
-  //   final lux      = (map['lux'] as num?)?.toDouble() ?? 300.0;
-  //   final gas      = (map['gas'] as num?)?.toInt() ?? 30;
-  //   final score    = calculateComfort(temp: temp, humidity: humidity, lux: lux, gas: gas);
-  //   return SensorData(
-  //     temperature: temp, humidity: humidity, lux: lux, gasLevel: gas,
-  //     presence: map['pir'] as bool? ?? false,
-  //     distance: (map['distance'] as num?)?.toDouble() ?? 0,
-  //     comfortScore: score, comfortStatus: scoreToStatus(score),
-  //     timestamp: DateTime.now(),
-  //   );
-  // }
+  // Label status kenyamanan berdasarkan tingkat kebisingan suara KY-037
+  String get soundStatus {
+    if (soundLevel > 70) return 'Bising';
+    if (soundLevel > 40) return 'Ramai';
+    return 'Tenang';
+  }
 
-  // ── Copy with (untuk simulasi perubahan nilai) ────────────────────────────
+  // ── Factory untuk Mapping data dari Firebase Realtime DB ──────────────────
+  factory SensorData.fromMap(Map<String, dynamic> map) {
+    final temp = (map['temperature'] as num?)?.toDouble() ?? 25.0;
+    final humidity = (map['humidity'] as num?)?.toDouble() ?? 60.0;
+    final lux = (map['lux'] as num?)?.toDouble() ?? 300.0;
+    
+    // Menangkap data suara baru dari ESP32 (mendukung fallback nama jika ada tipe lama)
+    final sound = (map['soundLevel'] as num?)?.toInt() ?? 
+                  (map['gasLevel'] as num?)?.toInt() ?? 
+                  20; 
+
+    final score = calculateComfort(
+      temp: temp,
+      humidity: humidity,
+      lux: lux,
+      sound: sound,
+    );
+
+    return SensorData(
+      temperature: temp,
+      humidity: humidity,
+      lux: lux,
+      soundLevel: sound,
+      presence: map['presence'] as bool? ?? map['pir'] as bool? ?? false,
+      distance: (map['distance'] as num?)?.toDouble() ?? 0.0,
+      comfortScore: score,
+      comfortStatus: scoreToStatus(score),
+      timestamp: map['timestamp'] as String? ?? DateTime.now().toIso8601String(),
+    );
+  }
+
+  // ── Copy with (Sintaks Bersih Bebas Eror) ──────────────────────────────────
   SensorData copyWith({
     double? temperature,
     double? humidity,
     double? lux,
-    int? gasLevel,
+    int? soundLevel,
     bool? presence,
     double? distance,
   }) {
-    final t  = temperature ?? this.temperature;
+    final t = temperature ?? this.temperature;
     final rh = humidity ?? this.humidity;
-    final l  = lux ?? this.lux;
-    final g  = gasLevel ?? this.gasLevel;
-    final score = calculateComfort(temp: t, humidity: rh, lux: l, gas: g);
+    final l = lux ?? this.lux;
+    final s = soundLevel ?? this.soundLevel;
+    final score = calculateComfort(temp: t, humidity: rh, lux: l, sound: s);
+
     return SensorData(
-      temperature: t, humidity: rh, lux: l, gasLevel: g,
+      temperature: t,
+      humidity: rh,
+      lux: l,
+      soundLevel: s,
       presence: presence ?? this.presence,
       distance: distance ?? this.distance,
-      comfortScore: score, comfortStatus: scoreToStatus(score),
-      timestamp: DateTime.now(),
+      comfortScore: score,
+      comfortStatus: scoreToStatus(score),
+      timestamp: timestamp,
     );
   }
 }

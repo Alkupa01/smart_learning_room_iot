@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "110359614666",
+    "firebase_url": "https://smart-learning-room-iot-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "smart-learning-room-iot",
+    "storage_bucket": "smart-learning-room-iot.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:110359614666:android:404e5620b9cd367ed35033",
+        "android_client_info": {
+          "package_name": "com.example.smart_learning_room"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqSSTT59KNrlbikXJ1Se7qGEz1TNfznGs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

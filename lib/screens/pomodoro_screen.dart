@@ -39,7 +39,6 @@ class PomodoroScreen extends ConsumerWidget {
                 ],
               ),
               actions: [
-                // Setting total sesi
                 if (pomodoro.state == PomodoroState.idle)
                   IconButton(
                     icon: const Icon(Icons.tune_outlined, color: Colors.grey),
@@ -53,7 +52,7 @@ class PomodoroScreen extends ConsumerWidget {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
 
-                  // ── 1. Break Warning ──────────────────────────────────
+                  // ── 1. Break Warning (KY-037 Sound Adaptation) ─────────
                   sensorAsync.maybeWhen(
                     data: (s) => _BreakWarning(sensor: s, pomodoro: pomodoro),
                     orElse: () => const SizedBox.shrink(),
@@ -161,7 +160,6 @@ class PomodoroScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: () {
-                    // TODO: update total sessions di notifier jika perlu
                     Navigator.pop(ctx);
                   },
                   child: const Text('Simpan',
@@ -177,7 +175,6 @@ class PomodoroScreen extends ConsumerWidget {
   }
 }
 
-// ── Break Warning ─────────────────────────────────────────────────────────────
 class _BreakWarning extends StatelessWidget {
   final SensorData sensor;
   final PomodoroData pomodoro;
@@ -186,7 +183,7 @@ class _BreakWarning extends StatelessWidget {
   bool get _shouldWarn =>
       pomodoro.state == PomodoroState.running &&
       !pomodoro.isBreak &&
-      sensor.gasLevel > 55;
+      sensor.soundLevel > 55; // Mengubah trigger warning polusi suara dari gasLevel
 
   @override
   Widget build(BuildContext context) {
@@ -200,17 +197,17 @@ class _BreakWarning extends StatelessWidget {
         border: Border.all(color: const Color(0xFFBA7517).withOpacity(0.3)),
       ),
       child: Row(children: [
-        const Text('⏰ ', style: TextStyle(fontSize: 16)),
+        const Text('🔊 ', style: TextStyle(fontSize: 16)),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Istirahat Disarankan',
+              const Text('Kondisi Kurang Kondusif',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
                     color: Color(0xFF854F0B)),
               ),
-              Text('CO₂ meningkat (${sensor.gasLevel}%) — '
-                  'buka jendela saat istirahat untuk segar kembali',
+              Text('Kebisingan meningkat (${sensor.soundLevel}%) — '
+                  'Disarankan istirahat sejenak atau aktifkan fitur sirkulasi otomatis.',
                 style: const TextStyle(fontSize: 10, color: Color(0xFF854F0B),
                     height: 1.4),
               ),
@@ -222,7 +219,6 @@ class _BreakWarning extends StatelessWidget {
   }
 }
 
-// ── Control Buttons ───────────────────────────────────────────────────────────
 class _Controls extends StatelessWidget {
   final PomodoroData pomodoro;
   final WidgetRef ref;
@@ -253,9 +249,9 @@ class _Controls extends StatelessWidget {
     };
   }
 
-  void _confirmStop(BuildContext ctx) {
+  void _confirmStop(BuildContext context) {
     showDialog(
-      context: ctx,
+      context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hentikan Sesi?',
@@ -263,12 +259,12 @@ class _Controls extends StatelessWidget {
         content: const Text('Progress sesi yang sedang berjalan akan hilang.',
             style: TextStyle(fontSize: 13, height: 1.5)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx),
+          TextButton(onPressed: () => Navigator.pop(context),
               child: const Text('Lanjutkan')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE8593C)),
-            onPressed: () { Navigator.pop(ctx); _notifier.stop(); },
+            onPressed: () { Navigator.pop(context); _notifier.stop(); },
             child: const Text('Stop', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -414,7 +410,6 @@ class _SmallButton extends StatelessWidget {
   }
 }
 
-// ── Env Monitor ───────────────────────────────────────────────────────────────
 class _EnvMonitor extends StatelessWidget {
   final SensorData sensor;
   const _EnvMonitor({required this.sensor});
@@ -452,13 +447,14 @@ class _EnvMonitor extends StatelessWidget {
               color: const Color(0xFF378ADD),
               ok: sensor.humidity >= 40 && sensor.humidity <= 65,
             )),
+            // FIX: Diganti total membaca parameter ketenangan suara KY-037
             Expanded(child: _EnvItem(
-              icon: Icons.air_outlined,
-              label: 'Udara',
-              value: sensor.gasLevel < 40 ? 'Segar'
-                   : sensor.gasLevel < 65 ? 'Sedang' : 'Pengap',
+              icon: Icons.volume_up_outlined,
+              label: 'Suara',
+              value: sensor.soundLevel < 40 ? 'Tenang'
+                   : sensor.soundLevel < 70 ? 'Ramai' : 'Bising',
               color: const Color(0xFF1D9E75),
-              ok: sensor.gasLevel < 60,
+              ok: sensor.soundLevel < 60,
             )),
           ]),
         ],
@@ -499,7 +495,6 @@ class _EnvItem extends StatelessWidget {
   }
 }
 
-// ── Comfort Bar ───────────────────────────────────────────────────────────────
 class _ComfortBar extends StatelessWidget {
   final int score;
   const _ComfortBar({required this.score});
@@ -553,7 +548,6 @@ class _ComfortBar extends StatelessWidget {
   }
 }
 
-// ── Session History ───────────────────────────────────────────────────────────
 class _SessionHistory extends StatelessWidget {
   final List<double> scores;
   const _SessionHistory({required this.scores});
@@ -571,7 +565,7 @@ class _SessionHistory extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Sesi Sebelumnya',
+          const Text('Sesi Previous',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
                 color: Color(0xFF1A1A2E))),
           const SizedBox(height: 10),
@@ -603,7 +597,6 @@ class _SessionHistory extends StatelessWidget {
   }
 }
 
-// ── Finished Card ─────────────────────────────────────────────────────────────
 class _FinishedCard extends StatelessWidget {
   final List<double> scores;
   final VoidCallback onReset;

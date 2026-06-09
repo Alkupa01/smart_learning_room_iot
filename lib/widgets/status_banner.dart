@@ -19,23 +19,23 @@ class StatusBanner extends StatelessWidget {
   ({Color bg, Color fg, IconData icon, String text}) get _config {
     if (sensor.comfortScore >= 80) {
       return (
-        bg:   const Color(0xFFE1F5EE),
-        fg:   const Color(0xFF0F6E56),
+        bg: const Color(0xFFE1F5EE),
+        fg: const Color(0xFF0F6E56),
         icon: Icons.check_circle_outline,
         text: 'Kondisi Optimal — Siap Belajar!',
       );
     }
     if (sensor.comfortScore >= 60) {
       return (
-        bg:   const Color(0xFFFFF8E1),
-        fg:   const Color(0xFF854F0B),
+        bg: const Color(0xFFFFF8E1),
+        fg: const Color(0xFF854F0B),
         icon: Icons.warning_amber_outlined,
         text: 'Kondisi Cukup — Perlu Penyesuaian',
       );
     }
     return (
-      bg:   const Color(0xFFFFEBEE),
-      fg:   const Color(0xFFA32D2D),
+      bg: const Color(0xFFFFEBEE),
+      fg: const Color(0xFFA32D2D),
       icon: Icons.error_outline,
       text: 'Kondisi Kurang Nyaman',
     );
@@ -76,7 +76,8 @@ class StatusBanner extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
               decoration: BoxDecoration(
-                color: Color.fromRGBO((c.fg.r * 255.0).round(), (c.fg.g * 255.0).round(), (c.fg.b * 255.0).round(), 0.12),
+                // FIX: Disederhanakan menggunakan properti opacity instan bawaan Flutter
+                color: c.fg.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
@@ -99,12 +100,21 @@ class StatusBanner extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
               decoration: BoxDecoration(
-                color: Color.fromRGBO((c.fg.r * 255.0).round(), (c.fg.g * 255.0).round(), (c.fg.b * 255.0).round(), 0.12),
+                color: Color.fromRGBO(
+                  (c.fg.r * 255.0).round(),
+                  (c.fg.g * 255.0).round(),
+                  (c.fg.b * 255.0).round(),
+                  0.12,
+                ),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 sensor.comfortScore.toString(),
-                style: TextStyle(color: c.fg, fontSize: 11, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: c.fg,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],

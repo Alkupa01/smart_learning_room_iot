@@ -120,7 +120,8 @@ class _GaugePainter extends CustomPainter {
       canvas.drawArc(
         rect, _startAngle + start * _sweepTotal, sweep * _sweepTotal, false,
         Paint()
-          ..color = Color.fromRGBO((c.r * 255.0).round(), (c.g * 255.0).round(), (c.b * 255.0).round(), 0.12)
+          // FIX: Menggunakan .red, .green, .blue standar Flutter
+          ..color = Color.fromRGBO(c.red, c.green, c.blue, 0.12)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 16
           ..strokeCap = StrokeCap.butt,
@@ -144,7 +145,8 @@ class _GaugePainter extends CustomPainter {
       canvas.drawArc(
         rect.inflate(1), _startAngle, activeSweep, false,
         Paint()
-          ..color = Color.fromRGBO((color.r * 255.0).round(), (color.g * 255.0).round(), (color.b * 255.0).round(), 0.2)
+          // FIX: Menggunakan .red, .green, .blue standar Flutter
+          ..color = Color.fromRGBO(color.red, color.green, color.blue, 0.2)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 20
           ..strokeCap = StrokeCap.round

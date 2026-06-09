@@ -28,12 +28,18 @@ class SensorCard extends StatelessWidget {
   });
 
   Color get _statusColor {
-    const ok    = Color(0xFF1D9E75);
-    const warn  = Color(0xFFBA7517);
-    const bad   = Color(0xFFE8593C);
-    if (statusText == 'Optimal' || statusText == 'Baik'  || statusText == 'Segar') return ok;
-    if (statusText == 'Hangat'  || statusText == 'Lembab' || statusText == 'Cukup'  ||
-        statusText == 'Sedang'  || statusText == 'Redup') {
+    const ok = Color(0xFF1D9E75);
+    const warn = Color(0xFFBA7517);
+    const bad = Color(0xFFE8593C);
+    if (statusText == 'Optimal' ||
+        statusText == 'Baik' ||
+        statusText == 'Segar')
+      return ok;
+    if (statusText == 'Hangat' ||
+        statusText == 'Lembab' ||
+        statusText == 'Cukup' ||
+        statusText == 'Sedang' ||
+        statusText == 'Redup') {
       return warn;
     }
     return bad;
@@ -51,7 +57,8 @@ class SensorCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Color.fromRGBO((accentColor.r * 255.0).round(), (accentColor.g * 255.0).round(), (accentColor.b * 255.0).round(), 0.08),
+              // FIX: Menggunakan .withOpacity langsung jauh lebih efisien & bebas eror .r .g .b
+              color: accentColor.withOpacity(0.08),
               blurRadius: 12,
               offset: const Offset(0, 3),
             ),
@@ -65,9 +72,11 @@ class SensorCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  width: 32, height: 32,
+                  width: 32,
+                  height: 32,
                   decoration: BoxDecoration(
-                    color: Color.fromRGBO((accentColor.r * 255.0).round(), (accentColor.g * 255.0).round(), (accentColor.b * 255.0).round(), 0.12),
+                    // FIX: Menggunakan .withOpacity
+                    color: accentColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(9),
                   ),
                   child: Icon(icon, color: accentColor, size: 17),
@@ -102,7 +111,11 @@ class SensorCard extends StatelessWidget {
             // Label
             Text(
               label,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 6),
 
@@ -110,7 +123,8 @@ class SensorCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
               decoration: BoxDecoration(
-                color: Color.fromRGBO((_statusColor.r * 255.0).round(), (_statusColor.g * 255.0).round(), (_statusColor.b * 255.0).round(), 0.1),
+                // FIX: Menggunakan .withOpacity standar
+                color: _statusColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -136,9 +150,21 @@ class _TrendBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (trend) {
-      SensorTrend.up   => const Icon(Icons.trending_up,   size: 14, color: Color(0xFFE8593C)),
-      SensorTrend.down => const Icon(Icons.trending_down, size: 14, color: Color(0xFF1D9E75)),
-      SensorTrend.stable => Icon(Icons.remove, size: 14, color: Colors.grey.shade400),
+      SensorTrend.up => const Icon(
+        Icons.trending_up,
+        size: 14,
+        color: Color(0xFFE8593C),
+      ),
+      SensorTrend.down => const Icon(
+        Icons.trending_down,
+        size: 14,
+        color: Color(0xFF1D9E75),
+      ),
+      SensorTrend.stable => Icon(
+        Icons.remove,
+        size: 14,
+        color: Colors.grey.shade400,
+      ),
     };
   }
 }

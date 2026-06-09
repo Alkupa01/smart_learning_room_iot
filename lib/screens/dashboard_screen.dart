@@ -15,14 +15,12 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Pastikan timer provider aktif
     ref.watch(sessionTimerProvider);
 
     final sensorAsync    = ref.watch(sensorProvider);
     final sessionActive  = ref.watch(sessionActiveProvider);
     final sessionSeconds = ref.watch(sessionSecondsProvider);
 
-    // Jalankan AI rules setiap data sensor update
     ref.listen(sensorProvider, (_, next) {
       next.whenData((s) => ref.read(actuatorProvider.notifier).applyAiRules(s));
     });
@@ -43,7 +41,6 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-// ── Body ──────────────────────────────────────────────────────────────────────
 class _Body extends StatelessWidget {
   final SensorData sensor;
   final bool sessionActive;
@@ -61,7 +58,6 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
-        // ── AppBar ──────────────────────────────────────────────────────────
         SliverAppBar(
           floating: true,
           backgroundColor: const Color(0xFFF4F6FA),
@@ -95,7 +91,6 @@ class _Body extends StatelessWidget {
             ],
           ),
           actions: [
-            // Presence indicator
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: _PresenceChip(presence: sensor.presence),
@@ -103,13 +98,10 @@ class _Body extends StatelessWidget {
           ],
         ),
 
-        // ── Konten utama ─────────────────────────────────────────────────────
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-
-              // 1. Status Banner
               StatusBanner(
                 sensor:         sensor,
                 sessionActive:  sessionActive,
@@ -117,11 +109,9 @@ class _Body extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // 2. Comfort Gauge card
               _ComfortCard(sensor: sensor),
               const SizedBox(height: 16),
 
-              // 3. Sensor Grid
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -129,7 +119,7 @@ class _Body extends StatelessWidget {
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
                   ),
                   Text(
-                    _lastUpdate(sensor.timestamp),
+                    'Baru saja', // Dimodifikasi statis simpel untuk performa web stream
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                   ),
                 ],
@@ -138,11 +128,9 @@ class _Body extends StatelessWidget {
               _SensorGrid(sensor: sensor),
               const SizedBox(height: 16),
 
-              // 4. AI Suggestion (jika ada rekomendasi)
               _AiSuggestionCard(sensor: sensor),
               const SizedBox(height: 16),
 
-              // 5. Session button
               _SessionButton(
                 active: sessionActive,
                 onTap:  () => ref.read(sessionActiveProvider.notifier).state = !sessionActive,
@@ -154,16 +142,8 @@ class _Body extends StatelessWidget {
       ],
     );
   }
-
-  String _lastUpdate(DateTime t) {
-    final diff = DateTime.now().difference(t).inSeconds;
-    if (diff < 5)  return 'Baru saja';
-    if (diff < 60) return '$diff detik lalu';
-    return '${diff ~/ 60} menit lalu';
-  }
 }
 
-// ── Comfort Card ──────────────────────────────────────────────────────────────
 class _ComfortCard extends StatelessWidget {
   final SensorData sensor;
   const _ComfortCard({required this.sensor});
@@ -183,7 +163,8 @@ class _ComfortCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Color.fromRGBO((_color.r * 255.0).round(), (_color.g * 255.0).round(), (_color.b * 255.0).round(), 0.08),
+            // FIX: Menggunakan .withOpacity agar tidak crash r, g, b di web
+            color: _color.withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -197,7 +178,6 @@ class _ComfortCard extends StatelessWidget {
               const Text('Comfort Index',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
               ),
-              // Badge "AI" ungu kecil
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -214,12 +194,11 @@ class _ComfortCard extends StatelessWidget {
           ComfortGauge(score: sensor.comfortScore),
           const SizedBox(height: 14),
 
-          // Status badge
           AnimatedContainer(
             duration: const Duration(milliseconds: 400),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
             decoration: BoxDecoration(
-              color: Color.fromRGBO((_color.r * 255.0).round(), (_color.g * 255.0).round(), (_color.b * 255.0).round(), 0.1),
+              color: _color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -233,15 +212,14 @@ class _ComfortCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // 3 parameter highlight kecil
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _MiniStat(label: 'Suhu',  value: '${sensor.temperature.toStringAsFixed(1)}°C'),
+              _MiniStat(label: 'Suhu',   value: '${sensor.temperature.toStringAsFixed(1)}°C'),
               _divider(),
               _MiniStat(label: 'RH',    value: '${sensor.humidity.toStringAsFixed(0)}%'),
               _divider(),
-              _MiniStat(label: 'Cahaya', value: '${sensor.lux.toStringAsFixed(0)} lx'),
+              _MiniStat(label: 'Suara', value: '${sensor.soundLevel}%'),
             ],
           ),
         ],
@@ -268,20 +246,17 @@ class _MiniStat extends StatelessWidget {
   }
 }
 
-// ── Sensor Grid ───────────────────────────────────────────────────────────────
 class _SensorGrid extends StatelessWidget {
   final SensorData sensor;
   const _SensorGrid({required this.sensor});
 
-  SensorTrend _tempTrend(double t)  => t > 27 ? SensorTrend.up   : t < 22 ? SensorTrend.down   : SensorTrend.stable;
-  SensorTrend _rhTrend(double rh)   => rh > 65 ? SensorTrend.up  : rh < 40 ? SensorTrend.down  : SensorTrend.stable;
-  SensorTrend _gasTrend(int g)      => g > 60  ? SensorTrend.up  : SensorTrend.down;
+  SensorTrend _tempTrend(double t)   => t > 27 ? SensorTrend.up   : t < 22 ? SensorTrend.down   : SensorTrend.stable;
+  SensorTrend _rhTrend(double rh)    => rh > 65 ? SensorTrend.up  : rh < 40 ? SensorTrend.down  : SensorTrend.stable;
+  SensorTrend _soundTrend(int s)     => s > 50  ? SensorTrend.up  : SensorTrend.down;
 
   String _tempStatus(double t)  => t >= 22 && t <= 26 ? 'Optimal' : t > 28 ? 'Terlalu Panas' : t > 26 ? 'Hangat' : 'Dingin';
   String _rhStatus(double rh)   => rh >= 40 && rh <= 60 ? 'Optimal' : rh > 65 ? 'Lembab'  : 'Kering';
   String _luxStatus(double l)   => l >= 300 && l <= 500 ? 'Optimal' : l > 500  ? 'Terlalu Terang' : 'Redup';
-  String _gasStatus(int g)      => g < 40 ? 'Baik' : g < 65 ? 'Cukup' : 'Buruk';
-  String _gasLabel(int g)       => g < 40 ? 'Segar' : g < 65 ? 'Sedang' : 'Pengap';
 
   @override
   Widget build(BuildContext context) {
@@ -294,7 +269,7 @@ class _SensorGrid extends StatelessWidget {
       childAspectRatio: 1.35,
       children: [
         SensorCard(
-          icon:        Icons.thermostat_outlined,
+          icon:         Icons.thermostat_outlined,
           label:       'Suhu',
           value:       sensor.temperature.toStringAsFixed(1),
           unit:        '°C',
@@ -303,7 +278,7 @@ class _SensorGrid extends StatelessWidget {
           trend:       _tempTrend(sensor.temperature),
         ),
         SensorCard(
-          icon:        Icons.water_drop_outlined,
+          icon:         Icons.water_drop_outlined,
           label:       'Kelembaban',
           value:       sensor.humidity.toStringAsFixed(0),
           unit:        '%',
@@ -312,7 +287,7 @@ class _SensorGrid extends StatelessWidget {
           trend:       _rhTrend(sensor.humidity),
         ),
         SensorCard(
-          icon:        Icons.light_mode_outlined,
+          icon:         Icons.light_mode_outlined,
           label:       'Intensitas Cahaya',
           value:       sensor.lux.toStringAsFixed(0),
           unit:        'lux',
@@ -320,21 +295,21 @@ class _SensorGrid extends StatelessWidget {
           statusText:  _luxStatus(sensor.lux),
           trend:       SensorTrend.stable,
         ),
+        // FIX: Diubah penuh menampilkan data kebisingan KY-037
         SensorCard(
-          icon:        Icons.air_outlined,
-          label:       'Kualitas Udara',
-          value:       _gasLabel(sensor.gasLevel),
-          unit:        '',
+          icon:         Icons.volume_up_rounded,
+          label:       'Kebisingan Ruang',
+          value:       '${sensor.soundLevel}',
+          unit:        '%',
           accentColor: const Color(0xFF1D9E75),
-          statusText:  _gasStatus(sensor.gasLevel),
-          trend:       _gasTrend(sensor.gasLevel),
+          statusText:  sensor.soundStatus,
+          trend:       _soundTrend(sensor.soundLevel),
         ),
       ],
     );
   }
 }
 
-// ── AI Suggestion Card ────────────────────────────────────────────────────────
 class _AiSuggestionCard extends StatelessWidget {
   final SensorData sensor;
   const _AiSuggestionCard({required this.sensor});
@@ -343,7 +318,7 @@ class _AiSuggestionCard extends StatelessWidget {
     if (sensor.temperature > 27) return 'Suhu ruangan tinggi — fan otomatis dinyalakan untuk sirkulasi udara.';
     if (sensor.humidity > 65)    return 'Kelembaban melebihi batas nyaman — disarankan buka ventilasi.';
     if (sensor.lux < 250)        return 'Cahaya redup terdeteksi — lampu otomatis dinyalakan.';
-    if (sensor.gasLevel > 65)    return 'Kualitas udara menurun — pertimbangkan istirahat sejenak.';
+    if (sensor.soundLevel > 60)  return 'Ruangan terdeteksi bising — gunakan penutup telinga atau kondisikan ruangan.';
     if (sensor.comfortScore > 80) return 'Semua kondisi optimal — waktu terbaik untuk sesi belajar intensif!';
     return null;
   }
@@ -384,7 +359,6 @@ class _AiSuggestionCard extends StatelessWidget {
   }
 }
 
-// ── Presence Chip ─────────────────────────────────────────────────────────────
 class _PresenceChip extends StatelessWidget {
   final bool presence;
   const _PresenceChip({required this.presence});
@@ -421,7 +395,6 @@ class _PresenceChip extends StatelessWidget {
   }
 }
 
-// ── Session Button ────────────────────────────────────────────────────────────
 class _SessionButton extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
@@ -473,7 +446,6 @@ class _SessionButton extends StatelessWidget {
   }
 }
 
-// ── Loading & Error ───────────────────────────────────────────────────────────
 class _LoadingView extends StatelessWidget {
   const _LoadingView();
 
