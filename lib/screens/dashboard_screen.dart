@@ -124,7 +124,8 @@ class _Body extends StatelessWidget {
               _SensorGrid(sensor: sensor),
               const SizedBox(height: 16),
 
-              _AiSuggestionCard(sensor: sensor),
+              // 4. AI Suggestion dari Gemini
+              const _AiSuggestionCard(),
               const SizedBox(height: 16),
 
               _SessionButton(
@@ -305,47 +306,66 @@ class _SensorGrid extends StatelessWidget {
   }
 }
 
-class AiSuggestionCard extends ConsumerWidget {
-  const AiSuggestionCard({Key? key}) : super(key: key);
+// ── AI Suggestion Card (Gemini Integration) ───────────────────────────────
+class _AiSuggestionCard extends ConsumerWidget {
+  const _AiSuggestionCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Pantau state dari aiSuggestionProvider
     final aiState = ref.watch(aiSuggestionProvider);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEEEDFE),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFC5C2F5), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Text('✦ ', style: TextStyle(color: Color(0xFF534AB7), fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text('Saran AI Gemini',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF534AB7)),
+                  ),
+                ],
+              ),
+              InkWell(
+                onTap: () {
+                  // Trigger fetch manual untuk refresh saran
+                  ref.read(aiSuggestionProvider.notifier).fetchSuggestion();
+                },
+                child: const Icon(Icons.refresh, size: 16, color: Color(0xFF534AB7)),
+              )
+            ],
+          ),
+          const SizedBox(height: 8),
+          aiState.when(
+            data: (text) => Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFF534AB7), height: 1.4)),
+            loading: () => const Row(
               children: [
-                const Text('Analisis AI Gemini', style: TextStyle(fontWeight: FontWeight.bold)),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: () {
-                    // Memicu fetch AI
-                    ref.read(aiSuggestionProvider.notifier).fetchSuggestion();
-                  },
-                )
+                SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF534AB7))),
+                SizedBox(width: 8),
+                Text('Sedang menganalisis...', style: TextStyle(fontSize: 12, color: Color(0xFF534AB7))),
               ],
             ),
-            const Divider(),
-            aiState.when(
-              data: (text) => Text(text),
-              loading: () => const CircularProgressIndicator(),
-              error: (err, stack) => Text('Error: $err', style: const TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
+            error: (err, _) => Text('Error: $err', style: const TextStyle(fontSize: 12, color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
 }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, dynamic _suggestion) {
     final s = _suggestion;
     if (s == null) return const SizedBox.shrink();
 
