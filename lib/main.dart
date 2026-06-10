@@ -11,7 +11,6 @@ import 'firebase_options.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/pomodoro_screen.dart';
-import 'screens/profile_screen.dart';
 
 void main() async {
   // Memastikan framework binding Flutter siap sebelum inisialisasi async
@@ -88,12 +87,16 @@ class _MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<_MainNavigation> {
   int _idx = 0;
 
+  // Callback untuk navigasi antar tab
+  void _changeTab(int newIdx) {
+    setState(() => _idx = newIdx);
+  }
+
   // List halaman utama sesuai urutan tab navigasi bawah
-  final _screens = const [
-    DashboardScreen(),
+  late final List<Widget> _screens = [
+    DashboardScreen(onNavigate: _changeTab),
     AnalyticsScreen(),
-    PomodoroScreen(),
-    ProfileScreen(),
+    PomodoroScreen(onNavigate: _changeTab),
   ];
 
   @override
@@ -134,11 +137,6 @@ class _MainNavigationState extends State<_MainNavigation> {
               icon: Icon(Icons.timer_outlined),
               selectedIcon: Icon(Icons.timer),
               label: 'Sesi',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.psychology_outlined),
-              selectedIcon: Icon(Icons.psychology),
-              label: 'Profil AI',
             ),
           ],
         ),

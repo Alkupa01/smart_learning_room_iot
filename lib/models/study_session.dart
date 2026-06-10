@@ -40,4 +40,30 @@ class StudySession {
     final m = durationMinutes % 60;
     return m == 0 ? '${h}j' : '${h}j ${m}m';
   }
+
+  factory StudySession.fromMap(Map<String, dynamic> map) {
+    return StudySession(
+      id: map['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      startTime: DateTime.parse(map['startTime'] as String),
+      durationMinutes: (map['durationMinutes'] as num?)?.toInt() ?? 0,
+      avgComfortScore: (map['avgComfortScore'] as num?)?.toDouble() ?? 0.0,
+      avgTemperature: (map['avgTemperature'] as num?)?.toDouble() ?? 0.0,
+      avgHumidity: (map['avgHumidity'] as num?)?.toDouble() ?? 0.0,
+      avgLux: (map['avgLux'] as num?)?.toDouble() ?? 0.0,
+      feedbackLevel: (map['feedbackLevel'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'startTime': startTime.toIso8601String(),
+      'durationMinutes': durationMinutes,
+      'avgComfortScore': avgComfortScore,
+      'avgTemperature': avgTemperature,
+      'avgHumidity': avgHumidity,
+      'avgLux': avgLux,
+      'feedbackLevel': feedbackLevel,
+    };
+  }
 }

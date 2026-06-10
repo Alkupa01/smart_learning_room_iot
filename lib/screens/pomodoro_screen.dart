@@ -5,15 +5,62 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/pomodoro_provider.dart';
 import '../providers/sensor_provider.dart';
 import '../models/sensor_data.dart';
+import '../models/study_session.dart';
 import '../widgets/pomodoro_timer.dart';
 
-class PomodoroScreen extends ConsumerWidget {
-  const PomodoroScreen({super.key});
+class PomodoroScreen extends ConsumerStatefulWidget {
+  final Function(int)? onNavigate;
+  
+  const PomodoroScreen({super.key, this.onNavigate});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PomodoroScreen> createState() => _PomodoroScreenState();
+}
+
+class _PomodoroScreenState extends ConsumerState<PomodoroScreen> {
+  bool _hasSavedSession = false;
+
+  Future<void> _onPomodoroFinished(PomodoroData pomodoro) async {
+    if (_hasSavedSession) return;
+    _hasSavedSession = true;
+
+    final sensorAsync = ref.read(sensorProvider);
+    final sensor = sensorAsync.maybeWhen(data: (s) => s, orElse: () => null);
+    final avgComfort = pomodoro.sessionScores.isEmpty
+        ? (sensor?.comfortScore.toDouble() ?? 0.0)
+        : pomodoro.sessionScores.reduce((a, b) => a + b) / pomodoro.sessionScores.length;
+    final durationMinutes = pomodoro.totalSessions * 25;
+    final session = StudySession(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      startTime: DateTime.now().subtract(Duration(minutes: durationMinutes)),
+      durationMinutes: durationMinutes,
+      avgComfortScore: avgComfort,
+      avgTemperature: sensor?.temperature ?? 0.0,
+      avgHumidity: sensor?.humidity ?? 0.0,
+      avgLux: sensor?.lux ?? 0.0,
+      feedbackLevel: 3,
+    );
+
+    await ref.read(firebaseServiceProvider).saveStudySession(session);
+
+    if (!mounted) return;
+    widget.onNavigate?.call(1);
+    ref.read(pomodoroProvider.notifier).stop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final pomodoro   = ref.watch(pomodoroProvider);
     final sensorAsync = ref.watch(sensorProvider);
+
+    ref.listen<PomodoroData>(pomodoroProvider, (previous, next) {
+      if (previous?.state != PomodoroState.finished && next.state == PomodoroState.finished) {
+        _onPomodoroFinished(next);
+      }
+      if (previous?.state == PomodoroState.finished && next.state != PomodoroState.finished) {
+        _hasSavedSession = false;
+      }
+    });
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),

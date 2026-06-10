@@ -11,15 +11,13 @@ import '../widgets/sensor_card.dart';
 import '../widgets/status_banner.dart';
 
 class DashboardScreen extends ConsumerWidget {
-  const DashboardScreen({super.key});
+  final Function(int)? onNavigate;
+  
+  const DashboardScreen({super.key, this.onNavigate});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(sessionTimerProvider);
-
-    final sensorAsync    = ref.watch(sensorProvider);
-    final sessionActive  = ref.watch(sessionActiveProvider);
-    final sessionSeconds = ref.watch(sessionSecondsProvider);
+    final sensorAsync = ref.watch(sensorProvider);
 
     ref.listen(sensorProvider, (_, next) {
       next.whenData((s) => ref.read(actuatorProvider.notifier).applyAiRules(s));
@@ -31,10 +29,9 @@ class DashboardScreen extends ConsumerWidget {
         loading: () => const _LoadingView(),
         error:   (e, _) => _ErrorView(error: e.toString()),
         data:    (sensor) => _Body(
-          sensor:         sensor,
-          sessionActive:  sessionActive,
-          sessionSeconds: sessionSeconds,
-          ref:            ref,
+          sensor:     sensor,
+          ref:        ref,
+          onNavigate: onNavigate,
         ),
       ),
     );
@@ -43,15 +40,13 @@ class DashboardScreen extends ConsumerWidget {
 
 class _Body extends StatelessWidget {
   final SensorData sensor;
-  final bool sessionActive;
-  final int sessionSeconds;
   final WidgetRef ref;
+  final Function(int)? onNavigate;
 
   const _Body({
     required this.sensor,
-    required this.sessionActive,
-    required this.sessionSeconds,
     required this.ref,
+    this.onNavigate,
   });
 
   @override
@@ -104,8 +99,8 @@ class _Body extends StatelessWidget {
             delegate: SliverChildListDelegate([
               StatusBanner(
                 sensor:         sensor,
-                sessionActive:  sessionActive,
-                sessionSeconds: sessionSeconds,
+                sessionActive:  false,
+                sessionSeconds: 0,
               ),
               const SizedBox(height: 16),
 
@@ -132,8 +127,7 @@ class _Body extends StatelessWidget {
               const SizedBox(height: 16),
 
               _SessionButton(
-                active: sessionActive,
-                onTap:  () => ref.read(sessionActiveProvider.notifier).state = !sessionActive,
+                onTap: () => onNavigate?.call(2),
               ),
               const SizedBox(height: 8),
             ]),
@@ -396,9 +390,8 @@ class _PresenceChip extends StatelessWidget {
 }
 
 class _SessionButton extends StatelessWidget {
-  final bool active;
   final VoidCallback onTap;
-  const _SessionButton({required this.active, required this.onTap});
+  const _SessionButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -409,33 +402,28 @@ class _SessionButton extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: active
-                ? [const Color(0xFFE8593C), const Color(0xFFC0392B)]
-                : [const Color(0xFF1D9E75), const Color(0xFF0F6E56)],
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1D9E75), Color(0xFF0F6E56)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(18),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
-              color: active ? const Color(0x59E8593C) : const Color(0x591D9E75),
+              color: Color(0x591D9E75),
               blurRadius: 14,
-              offset: const Offset(0, 5),
+              offset: Offset(0, 5),
             ),
           ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              active ? Icons.stop_circle_outlined : Icons.play_circle_outline,
-              color: Colors.white, size: 22,
-            ),
+            const Icon(Icons.play_circle_outline, color: Colors.white, size: 22),
             const SizedBox(width: 10),
-            Text(
-              active ? 'Akhiri Sesi Belajar' : 'Mulai Sesi Belajar',
-              style: const TextStyle(
+            const Text(
+              'Mulai Sesi Belajar',
+              style: TextStyle(
                 color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15, letterSpacing: 0.3,
               ),
             ),

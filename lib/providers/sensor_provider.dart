@@ -28,7 +28,7 @@ final sessionActiveProvider = NotifierProvider<SessionActiveNotifier, bool>(() {
 // ── SESSION SECONDS PROVIDER (Riverpod 3.x Style) ─────────────────────────────
 class SessionSecondsNotifier extends Notifier<int> {
   @override
-  int build() => 0; // Nilai awal: 0 detik
+  int build() => 0; // Nilai awal: 0 detik3
 
   set state(int value) => super.state = value;
 }
