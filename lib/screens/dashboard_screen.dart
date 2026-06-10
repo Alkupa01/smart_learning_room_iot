@@ -9,6 +9,7 @@ import '../providers/sensor_provider.dart';
 import '../widgets/comfort_gauge.dart';
 import '../widgets/sensor_card.dart';
 import '../widgets/status_banner.dart';
+import '../providers/ai_suggestion_provider.dart';
 
 class DashboardScreen extends ConsumerWidget {
   final Function(int)? onNavigate;
@@ -304,18 +305,44 @@ class _SensorGrid extends StatelessWidget {
   }
 }
 
-class _AiSuggestionCard extends StatelessWidget {
-  final SensorData sensor;
-  const _AiSuggestionCard({required this.sensor});
+class AiSuggestionCard extends ConsumerWidget {
+  const AiSuggestionCard({Key? key}) : super(key: key);
 
-  String? get _suggestion {
-    if (sensor.temperature > 27) return 'Suhu ruangan tinggi — fan otomatis dinyalakan untuk sirkulasi udara.';
-    if (sensor.humidity > 65)    return 'Kelembaban melebihi batas nyaman — disarankan buka ventilasi.';
-    if (sensor.lux < 250)        return 'Cahaya redup terdeteksi — lampu otomatis dinyalakan.';
-    if (sensor.soundLevel > 60)  return 'Ruangan terdeteksi bising — gunakan penutup telinga atau kondisikan ruangan.';
-    if (sensor.comfortScore > 80) return 'Semua kondisi optimal — waktu terbaik untuk sesi belajar intensif!';
-    return null;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final aiState = ref.watch(aiSuggestionProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Analisis AI Gemini', style: TextStyle(fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () {
+                    // Memicu fetch AI
+                    ref.read(aiSuggestionProvider.notifier).fetchSuggestion();
+                  },
+                )
+              ],
+            ),
+            const Divider(),
+            aiState.when(
+              data: (text) => Text(text),
+              loading: () => const CircularProgressIndicator(),
+              error: (err, stack) => Text('Error: $err', style: const TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -351,7 +378,6 @@ class _AiSuggestionCard extends StatelessWidget {
       ),
     );
   }
-}
 
 class _PresenceChip extends StatelessWidget {
   final bool presence;

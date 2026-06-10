@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 
 import 'screens/dashboard_screen.dart';
@@ -15,6 +16,9 @@ import 'screens/pomodoro_screen.dart';
 void main() async {
   // Memastikan framework binding Flutter siap sebelum inisialisasi async
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Memuat environment variables dari file .env
+  await dotenv.load();
 
   // Lock aplikasi ke portrait mode saja
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -28,9 +32,7 @@ void main() async {
   );
 
   // Inisialisasi Firebase asli menggunakan konfigurasi otomatis dari CLI
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Menjalankan aplikasi di dalam scope Riverpod Provider
   runApp(const ProviderScope(child: SmartLearningRoomApp()));
