@@ -6,7 +6,9 @@ import '../models/sensor_data.dart';
 import '../services/firebase_service.dart';
 
 // Provider untuk menginisialisasi FirebaseService
-final firebaseServiceProvider = Provider<FirebaseService>((ref) => FirebaseService());
+final firebaseServiceProvider = Provider<FirebaseService>(
+  (ref) => FirebaseService(),
+);
 
 // ── SENSOR PROVIDER (REAL FROM FIREBASE) ──────────────────────────────────────
 final sensorProvider = StreamProvider<SensorData>((ref) {
@@ -19,8 +21,10 @@ class SessionActiveNotifier extends Notifier<bool> {
   @override
   bool build() => false; // Nilai awal: false
 
-  set state(bool value) => super.state = value; // Mempertahankan fungsi pencatatan .state di UI
+  set state(bool value) =>
+      super.state = value; // Mempertahankan fungsi pencatatan .state di UI
 }
+
 final sessionActiveProvider = NotifierProvider<SessionActiveNotifier, bool>(() {
   return SessionActiveNotifier();
 });
@@ -32,22 +36,35 @@ class SessionSecondsNotifier extends Notifier<int> {
 
   set state(int value) => super.state = value;
 }
-final sessionSecondsProvider = NotifierProvider<SessionSecondsNotifier, int>(() {
-  return SessionSecondsNotifier();
-});
+
+final sessionSecondsProvider = NotifierProvider<SessionSecondsNotifier, int>(
+  () {
+    return SessionSecondsNotifier();
+  },
+);
 
 // ── SESSION TIMER PROVIDER ────────────────────────────────────────────────────
+// lib/providers/sensor_provider.dart
+// ── RECONFIQ: SESSION TIMER PROVIDER (STOPWATCH COUNT-UP STYLE) ──────────────
 final sessionTimerProvider = Provider<void>((ref) {
+  Timer? periodicTimer;
+
   ref.listen<bool>(sessionActiveProvider, (bool? prev, bool next) {
     if (next) {
+      // Jika tombol "Mulai Sesi" ditekan, set stopwatch mulai dari 0 detik lagi
       ref.read(sessionSecondsProvider.notifier).state = 0;
-      Timer.periodic(const Duration(seconds: 1), (t) {
+      periodicTimer?.cancel();
+
+      periodicTimer = Timer.periodic(const Duration(seconds: 1), (t) {
         if (!ref.read(sessionActiveProvider)) {
           t.cancel();
           return;
         }
+        // Ditambah terus (Hitung Maju / Count-up)
         ref.read(sessionSecondsProvider.notifier).state++;
       });
+    } else {
+      periodicTimer?.cancel();
     }
   });
 });
@@ -56,8 +73,8 @@ final sessionTimerProvider = Provider<void>((ref) {
 class ActuatorState {
   final bool fan;
   final bool light;
-  final double servoAngle; 
-  final String mode; 
+  final double servoAngle;
+  final String mode;
 
   const ActuatorState({
     this.fan = true,
@@ -66,7 +83,12 @@ class ActuatorState {
     this.mode = 'auto',
   });
 
-  ActuatorState copyWith({bool? fan, bool? light, double? servoAngle, String? mode}) {
+  ActuatorState copyWith({
+    bool? fan,
+    bool? light,
+    double? servoAngle,
+    String? mode,
+  }) {
     return ActuatorState(
       fan: fan ?? this.fan,
       light: light ?? this.light,
@@ -86,15 +108,15 @@ class ActuatorNotifier extends Notifier<ActuatorState> {
     // Jalankan sinkronisasi pasif: Dengar perubahan dari Firebase node 'control'
     // Jika data control di Firebase berubah (atau baru dibuat), UI Flutter langsung update otomatis
     _subscription?.cancel();
-    
+
     // Kita manfaatkan referensi instance database Firebase
     final dbRef = FirebaseDatabase.instance.ref('smartlearningroom/control');
-    
+
     _subscription = dbRef.onValue.listen((event) {
       final snapshotValue = event.snapshot.value;
       if (snapshotValue != null) {
         final Map<dynamic, dynamic> map = snapshotValue as Map;
-        
+
         state = ActuatorState(
           fan: map['fan'] as bool? ?? false,
           light: map['light'] as bool? ?? false,
@@ -105,7 +127,12 @@ class ActuatorNotifier extends Notifier<ActuatorState> {
     });
 
     // Nilai awal cadangan sebelum stream mendarat
-    return const ActuatorState(fan: false, light: false, servoAngle: 45, mode: 'auto');
+    return const ActuatorState(
+      fan: false,
+      light: false,
+      servoAngle: 45,
+      mode: 'auto',
+    );
   }
 
   void toggleFan() {
@@ -129,7 +156,7 @@ class ActuatorNotifier extends Notifier<ActuatorState> {
 
   void applyAiRules(SensorData sensor) {
     if (state.mode != 'auto') return;
-    
+
     // AI LOGIC UPDATE: Kipas aktif jika suhu > 27°C ATAU tingkat kebisingan ruangan > 50%
     final targetFan = sensor.temperature > 27 || sensor.soundLevel > 50;
     final targetLight = sensor.lux < 250;
@@ -151,12 +178,15 @@ class FeedbackNotifier extends Notifier<int> {
 
   set state(int value) => super.state = value;
 }
+
 final feedbackProvider = NotifierProvider<FeedbackNotifier, int>(() {
   return FeedbackNotifier();
 });
 
-String formatDuration(int seconds) {
-  final m = (seconds ~/ 60).toString().padLeft(2, '0');
-  final s = (seconds % 60).toString().padLeft(2, '0');
-  return '$m:$s';
+// ── RECONFIQ: FORMAT UTAMA STOPWATCH (HH:MM:SS) ──────────────────────────────
+String formatDuration(int totalSeconds) {
+  final hours = (totalSeconds ~/ 3600).toString().padLeft(2, '0');
+  final minutes = ((totalSeconds % 3600) ~/ 60).toString().padLeft(2, '0');
+  final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
+  return '$hours:$minutes:$seconds';
 }

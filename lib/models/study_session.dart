@@ -34,16 +34,23 @@ class StudySession {
     return '$h:$m';
   }
 
+  // lib/models/study_session.dart
+
+  // Ganti getter durationLabel lama dengan logika hitungan detik (seconds) ini:
   String get durationLabel {
-    if (durationMinutes < 60) return '${durationMinutes}m';
-    final h = durationMinutes ~/ 60;
-    final m = durationMinutes % 60;
-    return m == 0 ? '${h}j' : '${h}j ${m}m';
+    if (durationMinutes < 60) {
+      return '${durationMinutes}s'; // Menampilkan "7s" atau "40s" secara riil
+    }
+    final m = durationMinutes ~/ 60;
+    final s = durationMinutes % 60;
+    return s == 0 ? '${m}m' : '${m}m ${s}s';
   }
 
   factory StudySession.fromMap(Map<String, dynamic> map) {
     return StudySession(
-      id: map['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          map['id']?.toString() ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       startTime: DateTime.parse(map['startTime'] as String),
       durationMinutes: (map['durationMinutes'] as num?)?.toInt() ?? 0,
       avgComfortScore: (map['avgComfortScore'] as num?)?.toDouble() ?? 0.0,
