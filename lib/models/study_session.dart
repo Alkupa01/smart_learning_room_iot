@@ -4,7 +4,7 @@
 class StudySession {
   final String id;
   final DateTime startTime;
-  final int durationMinutes;
+  final int durationSeconds;
   final double avgComfortScore;
   final double avgTemperature;
   final double avgHumidity;
@@ -14,7 +14,7 @@ class StudySession {
   const StudySession({
     required this.id,
     required this.startTime,
-    required this.durationMinutes,
+    required this.durationSeconds,
     required this.avgComfortScore,
     required this.avgTemperature,
     required this.avgHumidity,
@@ -38,11 +38,17 @@ class StudySession {
 
   // Ganti getter durationLabel lama dengan logika hitungan detik (seconds) ini:
   String get durationLabel {
-    if (durationMinutes < 60) {
-      return '${durationMinutes}s'; // Menampilkan "7s" atau "40s" secara riil
+    if (durationSeconds < 60) {
+      return '${durationSeconds}s';
     }
-    final m = durationMinutes ~/ 60;
-    final s = durationMinutes % 60;
+    final h = durationSeconds ~/ 3600;
+    final m = (durationSeconds % 3600) ~/ 60;
+    final s = durationSeconds % 60;
+    if (h > 0) {
+      return s == 0
+          ? '${h}j ${m}m'
+          : '${h}j ${m}m ${s}s';
+    }
     return s == 0 ? '${m}m' : '${m}m ${s}s';
   }
 
@@ -52,7 +58,7 @@ class StudySession {
           map['id']?.toString() ??
           DateTime.now().millisecondsSinceEpoch.toString(),
       startTime: DateTime.parse(map['startTime'] as String),
-      durationMinutes: (map['durationMinutes'] as num?)?.toInt() ?? 0,
+      durationSeconds: (map['durationMinutes'] as num?)?.toInt() ?? 0,
       avgComfortScore: (map['avgComfortScore'] as num?)?.toDouble() ?? 0.0,
       avgTemperature: (map['avgTemperature'] as num?)?.toDouble() ?? 0.0,
       avgHumidity: (map['avgHumidity'] as num?)?.toDouble() ?? 0.0,
@@ -65,7 +71,7 @@ class StudySession {
     return {
       'id': id,
       'startTime': startTime.toIso8601String(),
-      'durationMinutes': durationMinutes,
+      'durationMinutes': durationSeconds,
       'avgComfortScore': avgComfortScore,
       'avgTemperature': avgTemperature,
       'avgHumidity': avgHumidity,

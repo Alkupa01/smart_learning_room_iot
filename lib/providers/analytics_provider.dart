@@ -41,23 +41,32 @@ final filteredSessionsProvider = Provider<List<StudySession>>((ref) {
   final period = ref.watch(analyticsPeriodProvider);
   final now = DateTime.now();
 
+  final startOfToday = DateTime(now.year, now.month, now.day);
+  final startOfWeek = startOfToday.subtract(Duration(days: now.weekday - 1));
+  final startOfMonth = DateTime(now.year, now.month, 1);
+
   return sessions.where((s) {
-    final diff = now.difference(s.startTime);
-    
-    // FIX: Eksplisit casting 'as AnalyticsPeriod' agar switch expression bersifat exhaustive
-    return switch (period as AnalyticsPeriod) {
-      AnalyticsPeriod.today => diff.inDays == 0,
-      AnalyticsPeriod.week => diff.inDays <= 6,
-      AnalyticsPeriod.month => diff.inDays <= 29,
+    final startTime = s.startTime;
+
+    return switch (period) {
+      AnalyticsPeriod.today =>
+        startTime.isAfter(startOfToday.subtract(const Duration(milliseconds: 1))) &&
+            startTime.isBefore(startOfToday.add(const Duration(days: 1))),
+      AnalyticsPeriod.week =>
+        startTime.isAfter(startOfWeek.subtract(const Duration(milliseconds: 1))) &&
+            startTime.isBefore(startOfWeek.add(const Duration(days: 7))),
+      AnalyticsPeriod.month =>
+        startTime.isAfter(startOfMonth.subtract(const Duration(milliseconds: 1))) &&
+            startTime.isBefore(DateTime(now.year, now.month + 1, 1)),
     };
   }).toList();
 });
 
 // Total durasi belajar (menghitung total detik murni secara riil)
-final totalMinutesProvider = Provider<int>((ref) {
+final totalSecondsProvider = Provider<int>((ref) {
   return ref
       .watch(filteredSessionsProvider)
-      .fold(0, (sum, s) => sum + s.durationMinutes);
+      .fold(0, (sum, s) => sum + s.durationSeconds);
 });
 
 // Rata-rata comfort score
@@ -73,26 +82,64 @@ final bestSessionProvider = Provider<StudySession?>((ref) {
   final sessions = ref.watch(filteredSessionsProvider);
   if (sessions.isEmpty) return null;
   return sessions.reduce(
-    (a, b) => (a.avgComfortScore + a.durationMinutes * 0.3) >
-            (b.avgComfortScore + b.durationMinutes * 0.3)
+    (a, b) => (a.avgComfortScore + a.durationSeconds * 0.02) >
+            (b.avgComfortScore + b.durationSeconds * 0.02)
         ? a
         : b,
   );
 });
 
 // ── PROVIDER GRAFIK ADAPTIF (HARI / MINGGU / BULAN HISTORIS TAHUN 2026) ───────
-final weeklyChartDataProvider = Provider<List<({String day, int minutes, double comfort})>>((ref) {
+final weeklyChartDataProvider = Provider<List<({String day, int durationSeconds, double comfort})>>((ref) {
   final sessions = ref.watch(sessionsProvider);
   final period = ref.watch(analyticsPeriodProvider);
   final now = DateTime.now();
 
   // ───────────────────────────────────────────────────────────────────────────
-  // KONDISI 1 & 2: FILTER "HARI INI" ATAU "MINGGU INI" (Tampilan 7 Hari Kerja)
+  // KONDISI 1: FILTER "HARI INI" (Tampilan per jam / interval 2 jam)
   // ───────────────────────────────────────────────────────────────────────────
-  if (period == AnalyticsPeriod.today || period == AnalyticsPeriod.week) {
+  if (period == AnalyticsPeriod.today) {
+    const slotLabels = [
+      '00-01', '02-03', '04-05', '06-07', '08-09', '10-11',
+      '12-13', '14-15', '16-17', '18-19', '20-21', '22-23',
+    ];
+
+    return List.generate(12, (i) {
+      final startHour = i * 2;
+      final endHour = startHour + 1;
+      final bucketSessions = sessions.where((s) {
+        final time = s.startTime;
+        return time.year == now.year &&
+            time.month == now.month &&
+            time.day == now.day &&
+            time.hour >= startHour &&
+            time.hour <= endHour;
+      }).toList();
+
+      final totalSecs = bucketSessions.fold(0, (sum, s) => sum + s.durationSeconds);
+      final avgComfort = bucketSessions.isEmpty
+          ? 0.0
+          : bucketSessions.map((s) => s.avgComfortScore).reduce((a, b) => a + b) /
+                bucketSessions.length;
+
+      return (
+        day: slotLabels[i],
+        durationSeconds: totalSecs,
+        comfort: avgComfort,
+      );
+    });
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // KONDISI 2: FILTER "MINGGU INI" (Tampilan per hari)
+  // ───────────────────────────────────────────────────────────────────────────
+  if (period == AnalyticsPeriod.week) {
     const days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+    final startOfWeek = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+
     return List.generate(7, (i) {
-      final target = now.subtract(Duration(days: 6 - i));
+      final target = startOfWeek.add(Duration(days: i));
       final daySessions = sessions
           .where(
             (s) =>
@@ -102,7 +149,7 @@ final weeklyChartDataProvider = Provider<List<({String day, int minutes, double 
           )
           .toList();
 
-      final totalSecs = daySessions.fold(0, (sum, s) => sum + s.durationMinutes);
+      final totalSecs = daySessions.fold(0, (sum, s) => sum + s.durationSeconds);
       final avgComfort = daySessions.isEmpty
           ? 0.0
           : daySessions.map((s) => s.avgComfortScore).reduce((a, b) => a + b) /
@@ -110,40 +157,40 @@ final weeklyChartDataProvider = Provider<List<({String day, int minutes, double 
 
       return (
         day: days[target.weekday - 1],
-        minutes: totalSecs,
+        durationSeconds: totalSecs,
         comfort: avgComfort,
       );
     });
   }
-  
-  // ───────────────────────────────────────────────────────────────────────────
-  // KONDISI 3: FILTER "BULAN INI" -> AKUMULASI 12 BULAN SECARA REAL (TAHUN 2026)
-  // ───────────────────────────────────────────────────────────────────────────
-  else {
-    return List.generate(12, (i) {
-      final targetMonth = i + 1; // 1 = Januari, 12 = Desember
 
-      final monthSessions = sessions
-          .where(
-            (s) =>
-                s.startTime.month == targetMonth &&
-                s.startTime.year == now.year,
-          )
-          .toList();
+  final currentMonthEnd = DateTime(now.year, now.month + 1, 1).subtract(const Duration(days: 1));
+  final totalDays = currentMonthEnd.day;
+  final weekCount = (totalDays / 7).ceil();
 
-      final totalSecs = monthSessions.fold(0, (sum, s) => sum + s.durationMinutes);
-      final avgComfort = monthSessions.isEmpty
-          ? 0.0
-          : monthSessions
-                    .map((s) => s.avgComfortScore)
-                    .reduce((a, b) => a + b) /
-                monthSessions.length;
+  return List.generate(weekCount, (i) {
+    final weekStartDay = i * 7 + 1;
+    final weekEndDay = (i + 1) * 7 > totalDays ? totalDays : (i + 1) * 7;
 
-      return (
-        day: 'Bulan $targetMonth',
-        minutes: totalSecs,
-        comfort: avgComfort,
-      );
-    });
-  }
+    final weekSessions = sessions
+        .where(
+          (s) =>
+              s.startTime.year == now.year &&
+              s.startTime.month == now.month &&
+              s.startTime.day >= weekStartDay &&
+              s.startTime.day <= weekEndDay,
+        )
+        .toList();
+
+    final totalSecs = weekSessions.fold(0, (sum, s) => sum + s.durationSeconds);
+    final avgComfort = weekSessions.isEmpty
+        ? 0.0
+        : weekSessions.map((s) => s.avgComfortScore).reduce((a, b) => a + b) /
+              weekSessions.length;
+
+    return (
+      day: 'Minggu ${i + 1}',
+      durationSeconds: totalSecs,
+      comfort: avgComfort,
+    );
+  });
 });

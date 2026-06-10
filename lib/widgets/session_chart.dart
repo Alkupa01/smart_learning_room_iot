@@ -5,8 +5,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 class WeeklyBarChart extends StatefulWidget {
-  // Data: list of (day label, minutes, avg comfort score)
-  final List<({String day, int minutes, double comfort})> data;
+  // Data: list of (day label, duration in seconds, avg comfort score)
+  final List<({String day, int durationSeconds, double comfort})> data;
 
   const WeeklyBarChart({super.key, required this.data});
 
@@ -24,27 +24,37 @@ class _WeeklyBarChartState extends State<WeeklyBarChart> {
     return Colors.grey.shade200;
   }
 
+  String _formatDuration(int seconds) {
+    if (seconds < 60) return '${seconds}s';
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    if (h > 0) {
+      return s == 0 ? '${h}j ${m}m' : '${h}j ${m}m ${s}s';
+    }
+    return s == 0 ? '${m}m' : '${m}m ${s}s';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final maxMin = widget.data
-        .map((d) => d.minutes)
+    final maxSeconds = widget.data
+        .map((d) => d.durationSeconds)
         .fold(0, (a, b) => a > b ? a : b)
         .toDouble();
-    final maxY = maxMin == 0 ? 60.0 : (maxMin * 1.3).ceilToDouble();
+    final maxY = maxSeconds == 0 ? 1.0 : (maxSeconds / 60.0 * 1.3).ceilToDouble();
 
     return BarChart(
       BarChartData(
         maxY: maxY,
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            // FIX: Struktur penulisan properti warna tooltip fl_chart teranyar
             getTooltipColor: (group) => const Color(0xFF1A1A2E),
             tooltipPadding: const EdgeInsets.all(8),
             tooltipMargin: 8,
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               final d = widget.data[group.x];
               return BarTooltipItem(
-                '${d.day}\n${d.minutes}m',
+                '${d.day}\n${_formatDuration(d.durationSeconds)}',
                 const TextStyle(
                   color: Colors.white,
                   fontSize: 11,
@@ -72,10 +82,15 @@ class _WeeklyBarChartState extends State<WeeklyBarChart> {
               showTitles: true,
               reservedSize: 28,
               interval: maxY / 3,
-              getTitlesWidget: (val, _) => Text(
-                val == 0 ? '' : '${val.toInt()}m',
-                style: TextStyle(fontSize: 9, color: Colors.grey.shade400),
-              ),
+              getTitlesWidget: (val, _) {
+                if (val == 0) return const SizedBox.shrink();
+                final text = val % 1 == 0
+                    ? '${val.toInt()}m'
+                    : '${val.toStringAsFixed(1)}m';
+                return Text(text,
+                  style: TextStyle(fontSize: 9, color: Colors.grey.shade400),
+                );
+              },
             ),
           ),
           bottomTitles: AxisTitles(
@@ -120,7 +135,7 @@ class _WeeklyBarChartState extends State<WeeklyBarChart> {
             x: i,
             barRods: [
               BarChartRodData(
-                toY: d.minutes.toDouble(),
+                toY: d.durationSeconds / 60.0,
                 color: _touched == i || isToday
                     ? _barColor(d.comfort)
                     : _barColor(d.comfort).withOpacity(0.5),

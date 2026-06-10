@@ -1,5 +1,4 @@
 // lib/screens/pomodoro_screen.dart
-import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -164,7 +163,7 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> {
                             ),
 
                             // PERBAIKAN: Kirim totalSecs langsung (bukan menit hasil pembulatan lagi)
-                            durationMinutes: totalSecs,
+                            durationSeconds: totalSecs,
 
                             avgComfortScore:
                                 sensorData?.comfortScore.toDouble() ?? 80.0,

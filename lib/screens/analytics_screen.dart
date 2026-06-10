@@ -12,12 +12,24 @@ class AnalyticsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final period      = ref.watch(analyticsPeriodProvider);
-    final sessions    = ref.watch(filteredSessionsProvider);
-    final totalMin    = ref.watch(totalMinutesProvider);
-    final avgComfort  = ref.watch(avgComfortProvider);
-    final bestSession = ref.watch(bestSessionProvider);
-    final weeklyData  = ref.watch(weeklyChartDataProvider);
+    final period       = ref.watch(analyticsPeriodProvider);
+    final sessions     = ref.watch(filteredSessionsProvider);
+    final totalSeconds = ref.watch(totalSecondsProvider);
+    final avgComfort   = ref.watch(avgComfortProvider);
+    final bestSession  = ref.watch(bestSessionProvider);
+    final weeklyData   = ref.watch(weeklyChartDataProvider);
+
+    final chartTitle = switch (period) {
+      AnalyticsPeriod.today => 'Durasi Belajar per Jam',
+      AnalyticsPeriod.week => 'Durasi Belajar per Hari',
+      AnalyticsPeriod.month => 'Durasi Belajar per Minggu',
+    };
+
+    final chartSubtitle = switch (period) {
+      AnalyticsPeriod.today => 'Hari ini (2 jam per bar)',
+      AnalyticsPeriod.week => 'Minggu ini (per hari)',
+      AnalyticsPeriod.month => 'Bulan ini (per minggu)',
+    };
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
@@ -66,7 +78,7 @@ class AnalyticsScreen extends ConsumerWidget {
 
                   // ── 2. Summary cards ─────────────────────────────────
                   _SummaryCards(
-                    totalMinutes: totalMin,
+                    totalSeconds: totalSeconds,
                     avgComfort:   avgComfort,
                     totalSessions: sessions.length,
                   ),
@@ -74,8 +86,8 @@ class AnalyticsScreen extends ConsumerWidget {
 
                   // ── 3. Bar chart mingguan ─────────────────────────────
                   _ChartCard(
-                    title:    'Durasi Belajar per Hari',
-                    subtitle: '7 hari terakhir (menit)',
+                    title:    chartTitle,
+                    subtitle: chartSubtitle,
                     height:   180,
                     child:    WeeklyBarChart(data: weeklyData),
                   ),
@@ -181,20 +193,30 @@ class _PChip extends StatelessWidget {
 
 // ── Summary Cards ─────────────────────────────────────────────────────────────
 class _SummaryCards extends StatelessWidget {
-  final int totalMinutes;
+  final int totalSeconds;
   final double avgComfort;
   final int totalSessions;
   const _SummaryCards({
-    required this.totalMinutes,
+    required this.totalSeconds,
     required this.avgComfort,
     required this.totalSessions,
   });
 
   String get _durationLabel {
-    if (totalMinutes < 60) return '${totalMinutes}m';
-    final h = totalMinutes ~/ 60;
-    final m = totalMinutes % 60;
-    return m == 0 ? '${h}j' : '${h}j ${m}m';
+    final s = totalSeconds % 60;
+    final m = totalSeconds ~/ 60;
+    final h = m ~/ 60;
+    final mm = m % 60;
+
+    if (h > 0) {
+      return s == 0
+          ? '${h}j ${mm}m'
+          : '${h}j ${mm}m ${s}s';
+    }
+    if (m > 0) {
+      return s == 0 ? '${m}m' : '${m}m ${s}s';
+    }
+    return '${s}s';
   }
 
   @override
