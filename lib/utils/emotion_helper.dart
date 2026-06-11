@@ -3,15 +3,16 @@
 
 import '../models/sensor_data.dart';
 
+// ── Enum untuk status emosi ────────────────────────────────────────────────
+enum EmotionStatus {
+  veryHappy,  // 80-100: Optimal
+  happy,      // 65-79: Cukup Nyaman
+  neutral,    // 45-64: Kurang Nyaman
+  sad,        // 20-44: Tidak Nyaman
+  verySad,    // 0-19: Sangat Tidak Nyaman
+}
+
 class EmotionHelper {
-  // ── Enum untuk status emosi ────────────────────────────────────────────
-  enum EmotionStatus {
-    veryHappy,  // 80-100: Optimal
-    happy,      // 65-79: Cukup Nyaman
-    neutral,    // 45-64: Kurang Nyaman
-    sad,        // 20-44: Tidak Nyaman
-    verySad,    // 0-19: Sangat Tidak Nyaman
-  }
 
   // ── Map emoji berdasarkan emotion status ───────────────────────────────
   static const Map<EmotionStatus, String> emotionEmojis = {
