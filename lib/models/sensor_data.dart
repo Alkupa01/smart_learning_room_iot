@@ -1,6 +1,8 @@
 // lib/models/sensor_data.dart
 // Model data sensor dari ESP32-S3 dengan Integrasi KY-037 Sound Sensor
 
+import '../utils/emotion_helper.dart';
+
 class SensorData {
   final double temperature;
   final double humidity;
@@ -11,6 +13,8 @@ class SensorData {
   final String timestamp;
   final int comfortScore;      // Menyimpan hasil kalkulasi score
   final String comfortStatus;  // Menyimpan label status kenyamanan
+  final String emotionEmoji;   // Emoji berdasarkan comfort score
+  final String emotionDescription; // Deskripsi emosi detail
 
   SensorData({
     required this.temperature,
@@ -22,6 +26,8 @@ class SensorData {
     required this.timestamp,
     required this.comfortScore,
     required this.comfortStatus,
+    required this.emotionEmoji,
+    required this.emotionDescription,
   });
 
   // ── Comfort Index Engine (Diadaptasi untuk Polusi Suara KY-037) ──────────────
@@ -107,7 +113,8 @@ class SensorData {
       sound: sound,
     );
 
-    return SensorData(
+    // Inisialisasi sementara untuk mendapatkan SensorData
+    final sensorData = SensorData(
       temperature: temp,
       humidity: humidity,
       lux: lux,
@@ -116,7 +123,23 @@ class SensorData {
       distance: (map['distance'] as num?)?.toDouble() ?? 0.0,
       comfortScore: score,
       comfortStatus: scoreToStatus(score),
+      emotionEmoji: EmotionHelper.getEmoji(score),
+      emotionDescription: '', // Akan diisi ulang di bawah
       timestamp: map['timestamp'] as String? ?? DateTime.now().toIso8601String(),
+    );
+
+    return SensorData(
+      temperature: temp,
+      humidity: humidity,
+      lux: lux,
+      soundLevel: sound,
+      presence: sensorData.presence,
+      distance: sensorData.distance,
+      comfortScore: score,
+      comfortStatus: scoreToStatus(score),
+      emotionEmoji: EmotionHelper.getEmoji(score),
+      emotionDescription: EmotionHelper.getEmotionDescription(score, sensorData),
+      timestamp: sensorData.timestamp,
     );
   }
 
@@ -135,6 +158,20 @@ class SensorData {
     final s = soundLevel ?? this.soundLevel;
     final score = calculateComfort(temp: t, humidity: rh, lux: l, sound: s);
 
+    final updatedSensor = SensorData(
+      temperature: t,
+      humidity: rh,
+      lux: l,
+      soundLevel: s,
+      presence: presence ?? this.presence,
+      distance: distance ?? this.distance,
+      comfortScore: score,
+      comfortStatus: scoreToStatus(score),
+      emotionEmoji: EmotionHelper.getEmoji(score),
+      emotionDescription: '', // Placeholder
+      timestamp: timestamp,
+    );
+
     return SensorData(
       temperature: t,
       humidity: rh,
@@ -144,6 +181,8 @@ class SensorData {
       distance: distance ?? this.distance,
       comfortScore: score,
       comfortStatus: scoreToStatus(score),
+      emotionEmoji: EmotionHelper.getEmoji(score),
+      emotionDescription: EmotionHelper.getEmotionDescription(score, updatedSensor),
       timestamp: timestamp,
     );
   }

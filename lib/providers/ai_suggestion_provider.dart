@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/gemini_service.dart';
+import '../utils/emotion_helper.dart';
 import 'sensor_provider.dart';
 
 // 1. Provider untuk service Gemini
@@ -37,14 +38,17 @@ class AiSuggestionNotifier extends AsyncNotifier<String> {
       final sensor = sensorDataAsync.value!;
       final gemini = ref.read(geminiServiceProvider);
 
-      // Panggil API Gemini
-      // Pastikan variabel suara disesuaikan dengan properti di model Anda (misal: sensor.suara atau sensor.noiseLevel)
+      // Tentukan issue utama dari sensor menggunakan EmotionHelper
+      final primaryIssue = EmotionHelper.analyzePrimaryIssue(sensor);
+      
+      // Panggil API Gemini dengan soundLevel sebenarnya dan konteks issue utama
       final responseText = await gemini.analyzeSensorData(
         suhu: sensor.temperature,
         kelembapan: sensor.humidity,
         cahaya: sensor.lux,
-        suara: 40.0, // <-- Ganti angka ini dengan variabel suara dari branch Anda
+        suara: sensor.soundLevel.toDouble(), // Gunakan soundLevel sebenarnya
         durasiMenit: durasiMenit,
+        primaryIssue: primaryIssue,
       );
 
       return responseText;

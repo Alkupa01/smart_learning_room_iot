@@ -22,21 +22,49 @@ class GeminiService {
     required double cahaya,
     required double suara, // Pastikan atribut ini sudah ada di model branch Anda
     required int durasiMenit,
+    String? primaryIssue, // Issue utama yang perlu fokus
   }) async {
+    // Build context tentang issue utama
+    String issueContext = '';
+    if (primaryIssue == 'sound' && suara > 70) {
+      issueContext = '''
+
+⚠️ MASALAH UTAMA: Tingkat kebisingan SANGAT TINGGI ($suara%).
+Ini adalah penyebab utama menurunnya kenyamanan belajar.
+Fokus pada solusi untuk mengurangi kebisingan ruangan.''';
+    } else if (primaryIssue == 'temperature') {
+      issueContext = '''
+
+⚠️ MASALAH UTAMA: Suhu ruangan tidak optimal ($suhu°C).
+Ini mempengaruhi fokus dan kenyamanan.''';
+    } else if (primaryIssue == 'light') {
+      issueContext = '''
+
+⚠️ MASALAH UTAMA: Pencahayaan tidak ideal ($cahaya Lux).
+Ini dapat menyebabkan kelelahan mata.''';
+    } else if (primaryIssue == 'humidity') {
+      issueContext = '''
+
+⚠️ MASALAH UTAMA: Kelembapan udara tidak sesuai ($kelembapan%).
+Ini dapat mempengaruhi kesehatan dan konsentrasi.''';
+    }
+
     final prompt = '''
 Kamu adalah asisten AI cerdas untuk sistem IoT "Smart Learning Room".
 Berikut adalah pembacaan sensor ruangan saat ini:
-- Suhu: $suhu °C
-- Kelembapan: $kelembapan %
-- Intensitas Cahaya: $cahaya Lux
-- Tingkat Kebisingan: $suara dB
-- Durasi Belajar: $durasiMenit menit
+- Suhu: $suhu °C (Ideal: 22-26°C)
+- Kelembapan: $kelembapan % (Ideal: 40-60%)
+- Intensitas Cahaya: $cahaya Lux (Ideal: 300-500 Lux)
+- Tingkat Kebisingan: $suara % (Ideal: < 40%)
+- Durasi Belajar: $durasiMenit menit$issueContext
 
 Tugasmu:
-1. Berikan analisis singkat (1-2 kalimat) tentang kondisi ruangan saat ini apakah ideal untuk fokus belajar.
-2. Berikan 2 suggestion/saran praktis kepada pengguna untuk meningkatkan kenyamanan atau menjaga kesehatannya.
+1. Berikan analisis SINGKAT (1 kalimat) tentang kondisi ruangan dan dampaknya untuk fokus belajar.
+2. Jika ada masalah (nilai sensor di luar range ideal), PRIORITASKAN solusi untuk masalah tersebut.
+3. Berikan 1-2 saran praktis dan segera bisa dilakukan pengguna untuk meningkatkan kenyamanan.
 
-Format jawaban harus ringkas, menggunakan poin-poin, dan berbahasa Indonesia yang natural.
+Format jawaban HARUS ringkas, jelas, berbahasa Indonesia yang natural, dan fokus pada solusi.
+Hindari penjelasan yang panjang.
 ''';
 
     try {
